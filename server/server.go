@@ -5,12 +5,24 @@ import (
 	"net"
 )
 
+var (
+	clients     = make(map[string]*Client)
+	broadcastCh = make(chan Message)
+)
+
+type Message struct {
+	Sender string
+	Data   string
+}
+
 func Start(address string) error {
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
 	}
 	defer ln.Close()
+
+	go broadcastLoop()
 
 	fmt.Println("Server is listening on", address)
 
@@ -25,6 +37,18 @@ func Start(address string) error {
 
 		fmt.Printf("New client connected: %s\n", conn.RemoteAddr())
 
-		go client.Handle()
+		clients[client.Address] = client
+
+		go client.Handle(broadcastCh)
+	}
+}
+
+func broadcastLoop() {
+	for msg := range broadcastCh {
+		for addr, client := range clients {
+			if addr != msg.Sender {
+				client.MsgChan <- []byte(msg.Data)
+			}
+		}
 	}
 }
