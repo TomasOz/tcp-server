@@ -3,10 +3,12 @@ package server
 import (
 	"fmt"
 	"net"
+	"sync"
 )
 
 var (
 	clients     = make(map[string]*Client)
+	clientsMu   = sync.Mutex{}
 	broadcastCh = make(chan Message)
 )
 
@@ -37,7 +39,9 @@ func Start(address string) error {
 
 		fmt.Printf("New client connected: %s\n", conn.RemoteAddr())
 
+		clientsMu.Lock()
 		clients[client.Address] = client
+		clientsMu.Unlock()
 
 		go client.Handle(broadcastCh)
 	}
@@ -45,10 +49,18 @@ func Start(address string) error {
 
 func broadcastLoop() {
 	for msg := range broadcastCh {
+		clientsMu.Lock()
 		for addr, client := range clients {
 			if addr != msg.Sender {
 				client.MsgChan <- []byte(msg.Data)
 			}
 		}
+		clientsMu.Unlock()
 	}
+}
+
+func removeClient(addr string) {
+	clientsMu.Lock()
+	delete(clients, addr)
+	clientsMu.Unlock()
 }
