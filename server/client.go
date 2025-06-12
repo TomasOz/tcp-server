@@ -29,20 +29,12 @@ func (c *Client) Handle(broadcastCh chan Message) {
 		c.Conn.Close()
 	}()
 
-	go func() {
-		for msg := range c.MsgChan {
-			c.Conn.Write(msg)
-			c.BytesDownloaded += int64(len(msg))
+	go c.receiveMessages()
 
-			fmt.Printf("Client %s: already used %d bytes of data\n", c.Address, c.TotalBytes())
+	c.broadcastMessages(broadcastCh)
+}
 
-			if c.TotalBytes() >= 100 {
-				c.Conn.Write([]byte("Byte limit reached. Disconnecting.\n"))
-				return
-			}
-		}
-	}()
-
+func (c *Client) broadcastMessages(broadcastCh chan Message) {
 	reader := bufio.NewReader(c.Conn)
 
 	for {
@@ -59,8 +51,6 @@ func (c *Client) Handle(broadcastCh chan Message) {
 
 		c.BytesUploaded += int64(len(message))
 
-		fmt.Printf("Client %s: already used %d bytes of data\n", c.Address, c.TotalBytes())
-
 		if c.TotalBytes() >= 100 {
 			c.Conn.Write([]byte("Byte limit reached. Disconnecting.\n"))
 			break
@@ -70,6 +60,24 @@ func (c *Client) Handle(broadcastCh chan Message) {
 	}
 }
 
+func (c *Client) receiveMessages() {
+	for msg := range c.MsgChan {
+		c.Conn.Write(msg)
+		c.BytesDownloaded += int64(len(msg))
+
+		if c.TotalBytes() >= 100 {
+			c.Conn.Write([]byte("Byte limit reached. Disconnecting.\n"))
+			return
+		}
+	}
+}
+
 func (c *Client) TotalBytes() int64 {
 	return c.BytesUploaded + c.BytesDownloaded
+}
+
+func removeClient(addr string) {
+	clientsMu.Lock()
+	delete(clients, addr)
+	clientsMu.Unlock()
 }

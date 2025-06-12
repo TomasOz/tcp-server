@@ -58,9 +58,3 @@ func broadcastLoop() {
 		clientsMu.Unlock()
 	}
 }
-
-func removeClient(addr string) {
-	clientsMu.Lock()
-	delete(clients, addr)
-	clientsMu.Unlock()
-}
