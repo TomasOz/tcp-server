@@ -21,17 +21,35 @@ func TestClientCreation(t *testing.T) {
 	}
 }
 
-func TestTotalBytes(t *testing.T) {
+func TestAddBytesAndCheck(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
 	defer client.Close()
 
 	c := NewClient(server)
-	c.BytesUploaded = 50
-	c.BytesDownloaded = 30
 
-	if c.TotalBytes() != 80 {
-		t.Errorf("Expected total bytes 80, got %d", c.TotalBytes())
+	limitReached := c.addBytesAndCheck(50, 30)
+
+	if limitReached {
+		t.Errorf("Limit should not be reached yet, got: %v", limitReached)
+	}
+	if c.BytesUploaded != 50 {
+		t.Errorf("Expected 50 uploaded bytes, got %d", c.BytesUploaded)
+	}
+	if c.BytesDownloaded != 30 {
+		t.Errorf("Expected 30 downloaded bytes, got %d", c.BytesDownloaded)
+	}
+
+	limitReached = c.addBytesAndCheck(25, 0)
+
+	if !limitReached {
+		t.Errorf("Expected limit to be reached, got: %v", limitReached)
+	}
+	if c.BytesUploaded != 75 {
+		t.Errorf("Expected 75 uploaded bytes, got %d", c.BytesUploaded)
+	}
+	if c.BytesDownloaded != 30 {
+		t.Errorf("Expected total bytes 30, got %d", c.BytesDownloaded)
 	}
 }
 
